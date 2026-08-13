@@ -90,19 +90,19 @@ export default function ConfirmationPage() {
       </div>
 
       <div className="mt-8 flex justify-center gap-3">
-        <Link
-          href={`/order/track?order=${encodeURIComponent(lastOrder.orderNumber)}`}
-          className="rounded-full border border-forest/40 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-ivory-deep"
-        >
-          Track Order
-        </Link>
         <button
           type="button"
           onClick={handleBackToHome}
-          className="rounded-full bg-gradient-to-r from-forest to-forest-light px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+          className="rounded-full border border-forest/40 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-ivory-deep"
         >
           Back to Home
         </button>
+        <Link
+          href="/order/mine"
+          className="rounded-full bg-gradient-to-r from-forest to-forest-light px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+        >
+          My Orders
+        </Link>
       </div>
     </div>
   );

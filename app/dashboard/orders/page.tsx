@@ -7,6 +7,8 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   "Pending Confirmation": "bg-gold-light/40 text-gold-dark",
   Confirmed: "bg-forest/10 text-forest-dark",
   Preparing: "bg-blue-100 text-blue-700",
+  Cooking: "bg-orange-100 text-orange-700",
+  "Ready for Delivery": "bg-purple-100 text-purple-700",
   Completed: "bg-green-100 text-green-700",
   Cancelled: "bg-red-100 text-red-700",
 };

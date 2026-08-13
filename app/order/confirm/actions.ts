@@ -18,8 +18,21 @@ import type { ScheduleInfo, CustomerInfo, OrderPlacementResult } from "@/context
 
 export async function sendOrderOtp(email: string): Promise<{ error: string | null }> {
   const supabase = transientSupabase();
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-  return { error: error?.message ?? null };
+  try {
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    if (!error) return { error: null };
+
+    // Supabase's own wording here is written for developers, not
+    // customers — this is the message an affected customer actually sees.
+    if (error.message.toLowerCase().includes("rate limit")) {
+      return { error: "We're sending a lot of codes right now — please wait a minute and try again." };
+    }
+    console.error("[sendOrderOtp] signInWithOtp failed:", error.message);
+    return { error: error.message };
+  } catch (err) {
+    console.error("[sendOrderOtp] signInWithOtp threw:", err);
+    return { error: "We couldn't send a code right now. Please try again in a moment." };
+  }
 }
 
 export type PlaceOrderInput = {

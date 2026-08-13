@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stepper } from "@/components/Stepper";
 import { BackButton } from "@/components/BackButton";
-import { TrackOrderBanner } from "@/components/TrackOrderBanner";
 import { useWizard } from "@/context/WizardContext";
 import { usePackages } from "@/context/PackagesContext";
 import { EVENT_TYPES, type EventTypeInfo } from "@/lib/events";
@@ -17,6 +16,7 @@ import {
   getTrayPriceRange,
   isPackedMealPackage,
   getPackedMealPriceRange,
+  isHeadCountPackage,
 } from "@/lib/packages";
 
 type PackageIcon = (props: { className?: string }) => React.ReactNode;
@@ -113,6 +113,20 @@ const PACKAGE_ICONS: Record<string, PackageIcon> = {
   ),
 };
 
+// Fallback for any package slug not in PACKAGE_ICONS above — e.g. a brand
+// new package created from the dashboard. Without this, an unknown slug
+// looked up a few lines below crashes the whole landing page (React throws
+// "Element type is invalid" trying to render `<undefined />`), which is
+// exactly what used to happen: this map is admin-curated and package
+// creation in herbies-dashboard's /dashboard/menu has no reason to know
+// about it.
+const DefaultPackageIcon: PackageIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <path d="M8 12h8M12 8v8" />
+  </svg>
+);
+
 export default function PackageSelectionPage() {
   const router = useRouter();
   const { setPackage, setEventType } = useWizard();
@@ -131,7 +145,6 @@ export default function PackageSelectionPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 pb-12 pt-8">
-      {!selectedEvent && <TrackOrderBanner />}
       {selectedEvent && <Stepper current={1} />}
 
       <div
@@ -189,8 +202,7 @@ export default function PackageSelectionPage() {
       )}
 
       {selectedEvent && !loading && selectedEvent.categories.map((category) => {
-        const items = packages.filter((p) => p.category === category);
-        const isFullService = category === "Full-Service Catering";
+        const items = packages.filter((p) => p.category === category && p.active);
         return (
           <div key={category} className="mt-10">
             <div className="flex items-center gap-3">
@@ -203,14 +215,15 @@ export default function PackageSelectionPage() {
               {items.map((pkg) => {
                 const isCart = isTrayCartPackage(pkg);
                 const isPackedMeal = isPackedMealPackage(pkg);
+                const isHeadCount = isHeadCountPackage(pkg);
                 const min = isCart
                   ? getTrayPriceRange(pkg).min
                   : isPackedMeal
                   ? getPackedMealPriceRange(pkg).min
-                  : !isFullService
+                  : !isHeadCount
                   ? getPriceRange(pkg).min
                   : 0;
-                const Icon = PACKAGE_ICONS[pkg.slug];
+                const Icon = PACKAGE_ICONS[pkg.slug] ?? DefaultPackageIcon;
                 return (
                   <button
                     key={pkg.slug}
@@ -240,20 +253,7 @@ export default function PackageSelectionPage() {
                     <p className="mt-1 text-sm text-gray-600">{pkg.description}</p>
 
                     <div className="mt-4 w-full space-y-2 border-t border-gold-light/40 pt-3 text-sm">
-                      {isFullService ? (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Rate</span>
-                            <span className="font-serif text-base text-forest">
-                              ₱{getRatePerHead(pkg).toLocaleString()} / head
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Minimum</span>
-                            <span className="font-medium text-gray-700">{getMinimumPax(pkg)} pax</span>
-                          </div>
-                        </>
-                      ) : isCart ? (
+                      {isCart ? (
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Style</span>
@@ -273,6 +273,19 @@ export default function PackageSelectionPage() {
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">From</span>
                             <span className="font-serif text-base text-forest">₱{min.toLocaleString()}/pc</span>
+                          </div>
+                        </>
+                      ) : isHeadCount ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Rate</span>
+                            <span className="font-serif text-base text-forest">
+                              ₱{getRatePerHead(pkg).toLocaleString()} / head
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Minimum</span>
+                            <span className="font-medium text-gray-700">{getMinimumPax(pkg)} pax</span>
                           </div>
                         </>
                       ) : (

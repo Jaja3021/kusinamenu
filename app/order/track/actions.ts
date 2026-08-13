@@ -107,7 +107,10 @@ function allow(key: string, max = 10, windowMs = 10 * 60 * 1000): boolean {
   return entry.count <= max;
 }
 
-async function loadTrackedOrder(orderNumber: string, contact: string): Promise<TrackResult> {
+// Exported so app/order/mine/actions.ts can resolve several device-remembered
+// order pointers through the same RPC-calling/row-mapping logic, instead of
+// duplicating it.
+export async function loadTrackedOrder(orderNumber: string, contact: string): Promise<TrackResult> {
   const supabase = transientSupabase();
 
   const { data: orderRows, error: orderError } = await supabase.rpc("lookup_order", {

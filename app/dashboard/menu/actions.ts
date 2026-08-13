@@ -68,6 +68,7 @@ export async function createPackageAction(formData: FormData) {
     inclusions: lines(formData, "inclusions"),
     addOns: lines(formData, "addOns"),
     branch: branches(formData),
+    active: true,
   };
 
   if (shape === "head-count") {

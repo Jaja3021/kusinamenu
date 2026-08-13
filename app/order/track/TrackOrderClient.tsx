@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { lookupOrderAction, type TrackResult } from "./actions";
 import { useWizard } from "@/context/WizardContext";
 import { PaymentSection } from "@/components/PaymentSection";
+import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
 import { balanceDue, type TrackedOrder } from "@/lib/payments";
 
 const inputClass =
@@ -28,7 +29,35 @@ export default function TrackOrderClient() {
   const [paidOrder, setPaidOrder] = useState<TrackedOrder | null>(null);
 
   const order = paidOrder ?? (lookup?.ok ? lookup.order : null);
-  const [contact, setContact] = useState(lastOrder?.customerInfo.email ?? "");
+  // ?contact= lets My Orders' "Track Order" button (app/order/mine/page.tsx)
+  // deep-link straight into a resolved order without the customer re-typing
+  // it — falls back to the last order placed on this device, same as before.
+  const [contact, setContact] = useState(searchParams.get("contact") ?? lastOrder?.customerInfo.email ?? "");
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const refreshFormRef = useRef<HTMLFormElement>(null);
+
+  // Auto-submit once on mount when both params are present, so a My Orders
+  // deep link lands directly on the order instead of a pre-filled-but-idle
+  // form the customer still has to click through.
+  useEffect(() => {
+    if (searchParams.get("order") && searchParams.get("contact")) {
+      formRef.current?.requestSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only
+  }, []);
+
+  // No Supabase Realtime subscription — refetching whenever the tab regains
+  // focus is enough for "the customer sees an admin's status change without
+  // a full page reload," and needs no extra infrastructure.
+  useEffect(() => {
+    if (!order) return;
+    function onFocus() {
+      refreshFormRef.current?.requestSubmit();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [order]);
 
   if (!order) {
     return (
@@ -38,7 +67,7 @@ export default function TrackOrderClient() {
           Enter your order number and the email or mobile number you booked with.
         </p>
 
-        <form action={lookupAction} className="mt-6 space-y-4 rounded-2xl border border-gold-light/40 bg-white p-6 shadow-[0_1px_3px_rgba(27,58,46,0.06)]">
+        <form ref={formRef} action={lookupAction} className="mt-6 space-y-4 rounded-2xl border border-gold-light/40 bg-white p-6 shadow-[0_1px_3px_rgba(27,58,46,0.06)]">
           <label className="block text-sm">
             Order Number *
             <input
@@ -90,14 +119,24 @@ export default function TrackOrderClient() {
     <div className="mx-auto max-w-2xl px-6 pb-12 pt-8">
       <h1 className="font-serif text-3xl italic text-forest-dark">Track Your Order</h1>
 
-      <div className="mt-6 rounded-2xl border border-gold-light/40 bg-white p-6 shadow-[0_1px_3px_rgba(27,58,46,0.06),0_24px_48px_-30px_rgba(27,58,46,0.15)]">
-        <div className="flex items-center justify-between">
-          <p className="font-mono font-semibold text-forest-dark">{order.orderNumber}</p>
-          <span className="inline-flex items-center rounded-full bg-gold-light/40 px-3 py-1 text-xs font-semibold text-gold-dark">
-            {order.status}
-          </span>
-        </div>
+      {/* Refresh-on-focus only — never rendered visibly. Keeps a live
+          formRef mounted while the detail view (not the lookup form) is
+          showing, so the window "focus" effect above has something to
+          submit against. */}
+      <form ref={refreshFormRef} action={lookupAction} hidden>
+        <input type="hidden" name="orderNumber" value={order.orderNumber} />
+        <input type="hidden" name="contact" value={contact} />
+      </form>
+
+      <div className="mt-6 rounded-2xl border border-gold-light/40 bg-white p-6 shadow-[0_1px_3px_rgba(27,58,46,0.06)]">
+        <p className="font-mono text-sm font-semibold text-forest-dark">{order.orderNumber}</p>
         <p className="mt-1 text-xs text-gray-500">Placed {new Date(order.createdAt).toLocaleString()}</p>
+        <div className="mt-4 border-t border-gold-light/40 pt-4">
+          <OrderStatusTimeline status={order.status} />
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-gold-light/40 bg-white p-6 shadow-[0_1px_3px_rgba(27,58,46,0.06),0_24px_48px_-30px_rgba(27,58,46,0.15)]">
 
         <dl className="mt-6 space-y-2 text-sm">
           <div className="flex justify-between">

@@ -242,6 +242,9 @@ export type PackageType = {
   // Informational only — the order flow doesn't filter on it (branch is
   // chosen at checkout, in app/order/confirm/page.tsx).
   branch?: string[] | null;
+  // Storefront visibility toggle, set from herbies-dashboard's /dashboard/menu.
+  // false = hidden from app/page.tsx without deleting the row.
+  active: boolean;
 };
 
 export type PackageBranch = { id: string; name: string };
@@ -323,12 +326,13 @@ export function getPaxLabel(packages: PackageType[], packageSlug: string, pax: n
 
 export function getMinimumPax(pkg: PackageType): Pax {
   if (pkg.minimumHeadCount != null) return pkg.minimumHeadCount;
-  return pkg.paxTiers[0].pax;
+  return pkg.paxTiers[0]?.pax ?? 0;
 }
 
 export function getRatePerHead(pkg: PackageType): number {
   if (pkg.pricePerHead != null) return pkg.pricePerHead;
   const first = pkg.paxTiers[0];
+  if (!first) return 0;
   const minPrice = Math.min(...first.menus.map((m) => m.price));
   return Math.round(minPrice / first.pax);
 }

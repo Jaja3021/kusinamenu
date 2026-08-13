@@ -13,6 +13,7 @@ import {
   type ScheduleInfo,
 } from "@/context/WizardContext";
 import { usePackages } from "@/context/PackagesContext";
+import { useMyOrders } from "@/context/MyOrdersContext";
 import { getEventShortLabel } from "@/lib/events";
 import { sendOrderOtp, verifyOtpAndPlaceOrder } from "./actions";
 import {
@@ -54,6 +55,7 @@ function toDateInputValue(date: Date): string {
 export default function ConfirmPage() {
   const router = useRouter();
   const { draft, placeOrder, setPax } = useWizard();
+  const { addOrder } = useMyOrders();
   const { getPackage, resolveMenu, getPaxLabel, loading: packagesLoading } = usePackages();
   const pkg = draft.packageSlug ? getPackage(draft.packageSlug) : undefined;
   const menu = draft.packageSlug
@@ -163,6 +165,10 @@ export default function ConfirmPage() {
     setSubmitting(true);
     setOtpOpen(false);
     placeOrder(scheduleWithEventType, customer, delivery, response.result);
+    // Remembers this order for the "My Orders" nav badge/list — the only
+    // record of "which orders are mine" this app keeps, since there's no
+    // customer login (see context/MyOrdersContext.tsx).
+    addOrder(response.result.orderNumber, customer.email);
     router.push("/order/confirmation");
   }
 

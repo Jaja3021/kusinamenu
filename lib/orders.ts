@@ -1,9 +1,24 @@
 import type { TrayCartLine, PackedMealCartLine, SelectedDishes, MenuVariant } from "@/lib/packages";
 import type { OrderPaymentStatus } from "@/lib/payments";
 
-export type OrderStatus = "Pending Confirmation" | "Confirmed" | "Preparing" | "Completed" | "Cancelled";
+export type OrderStatus =
+  | "Pending Confirmation"
+  | "Confirmed"
+  | "Preparing"
+  | "Cooking"
+  | "Ready for Delivery"
+  | "Completed"
+  | "Cancelled";
 
-export const ORDER_STATUSES: OrderStatus[] = ["Pending Confirmation", "Confirmed", "Preparing", "Completed", "Cancelled"];
+export const ORDER_STATUSES: OrderStatus[] = [
+  "Pending Confirmation",
+  "Confirmed",
+  "Preparing",
+  "Cooking",
+  "Ready for Delivery",
+  "Completed",
+  "Cancelled",
+];
 
 // Mirrors the `orders` table (supabase/orders.sql) — a denormalized
 // snapshot of what was ordered, so later menu edits never change a

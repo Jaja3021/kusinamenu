@@ -21,6 +21,7 @@ type PackageRow = {
   tray_catalog: TrayDish[] | null;
   packed_meal_catalog: PackedMealCategoryInfo[] | null;
   branch: string[] | null;
+  active: boolean | null;
 };
 
 function rowToPackage(row: PackageRow): PackageType {
@@ -40,6 +41,9 @@ function rowToPackage(row: PackageRow): PackageType {
     trayCatalog: row.tray_catalog ?? undefined,
     packedMealCatalog: row.packed_meal_catalog ?? undefined,
     branch: row.branch ?? undefined,
+    // Defaults true for any row read before the migration in
+    // supabase/menu_orders_v2.sql adds the column.
+    active: row.active ?? true,
   };
 }
 
@@ -60,6 +64,7 @@ function packageToRow(pkg: PackageType) {
     tray_catalog: pkg.trayCatalog ?? null,
     packed_meal_catalog: pkg.packedMealCatalog ?? null,
     branch: pkg.branch ?? null,
+    active: pkg.active,
   };
 }
 
