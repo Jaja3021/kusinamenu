@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWizard } from "@/context/WizardContext";
 import { usePackages } from "@/context/PackagesContext";
-import { isTrayCartPackage, isPackedMealPackage } from "@/lib/packages";
+import { isTrayCartPackage } from "@/lib/packages";
 
 export default function ConfirmationPage() {
   const router = useRouter();
@@ -28,7 +28,14 @@ export default function ConfirmationPage() {
 
   const pkg = lastOrder.packageSlug ? getPackage(lastOrder.packageSlug) : undefined;
   const menu = lastOrder.packageSlug
-    ? resolveMenu(lastOrder.packageSlug, lastOrder.pax, lastOrder.menuId, lastOrder.cart, lastOrder.selectedDishes)
+    ? resolveMenu(
+        lastOrder.packageSlug,
+        lastOrder.pax,
+        lastOrder.menuId,
+        lastOrder.cart,
+        lastOrder.selectedDishes,
+        lastOrder.packedMealCart
+      )
     : undefined;
   const quantityLabel =
     pkg && isTrayCartPackage(pkg)
@@ -84,7 +91,7 @@ export default function ConfirmationPage() {
 
       <div className="mt-8 flex justify-center gap-3">
         <Link
-          href="/order/track"
+          href={`/order/track?order=${encodeURIComponent(lastOrder.orderNumber)}`}
           className="rounded-full border border-forest/40 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-ivory-deep"
         >
           Track Order

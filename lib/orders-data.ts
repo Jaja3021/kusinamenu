@@ -33,6 +33,9 @@ type OrderRow = {
   subtotal: number;
   delivery_fee: number;
   total: number;
+  deposit_amount: number;
+  amount_paid: number;
+  payment_status: OrderRecord["paymentStatus"];
   created_at: string;
   updated_at: string;
 };
@@ -68,6 +71,9 @@ function rowToOrder(row: OrderRow): OrderRecord {
     subtotal: row.subtotal,
     deliveryFee: row.delivery_fee,
     total: row.total,
+    depositAmount: row.deposit_amount,
+    amountPaid: row.amount_paid,
+    paymentStatus: row.payment_status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

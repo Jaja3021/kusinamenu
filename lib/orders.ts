@@ -1,4 +1,5 @@
 import type { TrayCartLine, PackedMealCartLine, SelectedDishes, MenuVariant } from "@/lib/packages";
+import type { OrderPaymentStatus } from "@/lib/payments";
 
 export type OrderStatus = "Pending Confirmation" | "Confirmed" | "Preparing" | "Completed" | "Cancelled";
 
@@ -41,6 +42,13 @@ export type OrderRecord = {
   subtotal: number;
   deliveryFee: number;
   total: number;
+
+  // Derived server-side (supabase/payments.sql) — amountPaid/paymentStatus
+  // are recomputed by a trigger on `payments` and must never be written by
+  // application code. depositAmount is a snapshot taken at order time.
+  depositAmount: number;
+  amountPaid: number;
+  paymentStatus: OrderPaymentStatus;
 
   createdAt: string;
   updatedAt: string;

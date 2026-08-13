@@ -11,6 +11,14 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   Cancelled: "bg-red-100 text-red-700",
 };
 
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  Unpaid: "bg-gray-100 text-gray-600",
+  "Awaiting Verification": "bg-gold-light/40 text-gold-dark",
+  "Partially Paid": "bg-gold-light/40 text-gold-dark",
+  "Deposit Paid": "bg-forest/10 text-forest-dark",
+  Paid: "bg-forest text-white",
+};
+
 export default async function DashboardOrdersPage() {
   await requireAdmin();
   const orders = await getOrders();
@@ -37,6 +45,7 @@ export default async function DashboardOrdersPage() {
                 <th className="px-4 py-3">Event Date</th>
                 <th className="px-4 py-3">Total</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -60,6 +69,15 @@ export default async function DashboardOrdersPage() {
                       }`}
                     >
                       {order.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        PAYMENT_STATUS_STYLES[order.paymentStatus] ?? "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {order.paymentStatus}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">

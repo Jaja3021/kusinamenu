@@ -15,6 +15,7 @@ import {
   type PackedMealCartLine,
 } from "@/lib/packages";
 import { usePackages } from "@/context/PackagesContext";
+import { DELIVERY_FEE } from "@/lib/pricing";
 
 export type ScheduleInfo = {
   eventType: string;
@@ -240,7 +241,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     : undefined;
 
   const subtotal = menu?.price ?? 0;
-  const deliveryFee = draft.deliveryMethod === "delivery" ? 500 : 0;
+  const deliveryFee = draft.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
   const total = subtotal + deliveryFee;
 
   function placeOrder(

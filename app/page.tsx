@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stepper } from "@/components/Stepper";
 import { BackButton } from "@/components/BackButton";
+import { TrackOrderBanner } from "@/components/TrackOrderBanner";
 import { useWizard } from "@/context/WizardContext";
 import { usePackages } from "@/context/PackagesContext";
 import { EVENT_TYPES, type EventTypeInfo } from "@/lib/events";
@@ -130,6 +131,7 @@ export default function PackageSelectionPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 pb-12 pt-8">
+      {!selectedEvent && <TrackOrderBanner />}
       {selectedEvent && <Stepper current={1} />}
 
       <div

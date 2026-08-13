@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { getOrder } from "@/lib/orders-data";
 import { ORDER_STATUSES } from "@/lib/orders";
+import { PaymentsPanel } from "@/components/PaymentsPanel";
 import { updateOrderStatusAction } from "../actions";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -76,6 +77,20 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               <dt className="text-forest-dark">Total</dt>
               <dd className="font-serif text-lg text-forest">₱{order.total.toLocaleString()}</dd>
             </div>
+            <div className="flex justify-between border-t border-gold-light/40 pt-2">
+              <dt className="text-gray-500">Deposit</dt>
+              <dd>₱{order.depositAmount.toLocaleString()}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Amount Paid</dt>
+              <dd className="font-medium text-forest-dark">₱{order.amountPaid.toLocaleString()}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-gray-500">Payment Status</dt>
+              <dd className="inline-flex items-center rounded-full bg-gold-light/40 px-2.5 py-1 text-xs font-semibold text-gold-dark">
+                {order.paymentStatus}
+              </dd>
+            </div>
           </dl>
         </section>
 
@@ -144,6 +159,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             )}
           </dl>
         </section>
+
+        <PaymentsPanel orderId={order.id} />
       </div>
     </div>
   );
