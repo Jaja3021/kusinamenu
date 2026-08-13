@@ -20,6 +20,7 @@ type PackageRow = {
   head_count_menu: PackageType["headCountMenu"] | null;
   tray_catalog: TrayDish[] | null;
   packed_meal_catalog: PackedMealCategoryInfo[] | null;
+  branch: string[] | null;
 };
 
 function rowToPackage(row: PackageRow): PackageType {
@@ -38,6 +39,7 @@ function rowToPackage(row: PackageRow): PackageType {
     headCountMenu: row.head_count_menu ?? undefined,
     trayCatalog: row.tray_catalog ?? undefined,
     packedMealCatalog: row.packed_meal_catalog ?? undefined,
+    branch: row.branch ?? undefined,
   };
 }
 
@@ -57,6 +59,7 @@ function packageToRow(pkg: PackageType) {
     head_count_menu: pkg.headCountMenu ?? null,
     tray_catalog: pkg.trayCatalog ?? null,
     packed_meal_catalog: pkg.packedMealCatalog ?? null,
+    branch: pkg.branch ?? null,
   };
 }
 

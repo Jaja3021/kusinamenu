@@ -38,6 +38,11 @@ function lines(formData: FormData, key: string): string[] {
     .filter(Boolean);
 }
 
+function branches(formData: FormData): string[] | null {
+  const values = formData.getAll("branch").map(String).filter(Boolean);
+  return values.length > 0 ? values : null;
+}
+
 export async function createPackageAction(formData: FormData) {
   await requireAdmin();
   const shape = str(formData, "shape");
@@ -62,6 +67,7 @@ export async function createPackageAction(formData: FormData) {
     paxTiers: [],
     inclusions: lines(formData, "inclusions"),
     addOns: lines(formData, "addOns"),
+    branch: branches(formData),
   };
 
   if (shape === "head-count") {
@@ -96,6 +102,7 @@ export async function updatePackageDetailsAction(formData: FormData) {
     recommended: formData.get("recommended") === "on",
     inclusions: lines(formData, "inclusions"),
     addOns: lines(formData, "addOns"),
+    branch: branches(formData),
   };
 
   if (existing.pricePerHead != null) {

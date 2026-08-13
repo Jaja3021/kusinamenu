@@ -8,6 +8,7 @@ import {
   packageCategories,
   TRAY_CATEGORIES,
   PACKED_MEAL_CATEGORIES,
+  PACKAGE_BRANCHES,
 } from "@/lib/packages";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import {
@@ -91,6 +92,26 @@ export default async function EditPackagePage({ params }: { params: Promise<{ sl
           <input type="checkbox" name="recommended" defaultChecked={pkg.recommended} className="h-4 w-4 accent-forest" />
           Mark as Recommended
         </label>
+
+        <div>
+          <p className="text-sm font-medium text-gray-700">
+            Branches <span className="text-xs font-normal text-gray-400">(none checked = all branches)</span>
+          </p>
+          <div className="mt-2 flex flex-wrap gap-4">
+            {PACKAGE_BRANCHES.map((b) => (
+              <label key={b.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="branch"
+                  value={b.id}
+                  defaultChecked={(pkg.branch ?? []).includes(b.id)}
+                  className="h-4 w-4 accent-forest"
+                />
+                {b.name}
+              </label>
+            ))}
+          </div>
+        </div>
 
         {isHeadCount && (
           <div className="grid grid-cols-1 gap-4 border-t border-gold-light/40 pt-4 sm:grid-cols-2">

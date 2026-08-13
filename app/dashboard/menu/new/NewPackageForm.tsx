@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPackageAction } from "../actions";
-import { packageCategories } from "@/lib/packages";
+import { packageCategories, PACKAGE_BRANCHES } from "@/lib/packages";
 
 const SHAPES = [
   { value: "pax-tiered", label: "Pax-tiered", hint: "Pick a pax size, one menu per tier (add tiers after creating)." },
@@ -78,6 +78,20 @@ export function NewPackageForm() {
         <input type="checkbox" name="recommended" className="h-4 w-4 accent-forest" />
         Mark as Recommended
       </label>
+
+      <div>
+        <p className="text-sm font-medium text-gray-700">
+          Branches <span className="text-xs font-normal text-gray-400">(none checked = all branches)</span>
+        </p>
+        <div className="mt-2 flex flex-wrap gap-4">
+          {PACKAGE_BRANCHES.map((b) => (
+            <label key={b.id} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="branch" value={b.id} className="h-4 w-4 accent-forest" />
+              {b.name}
+            </label>
+          ))}
+        </div>
+      </div>
 
       {shape === "head-count" && (
         <div className="grid grid-cols-1 gap-4 border-t border-gold-light/40 pt-6 sm:grid-cols-2">

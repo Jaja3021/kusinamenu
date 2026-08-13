@@ -238,7 +238,20 @@ export type PackageType = {
   headCountMenu?: DishSet;
   trayCatalog?: TrayDish[];
   packedMealCatalog?: PackedMealCategoryInfo[];
+  // Serving areas this package is offered at. Null/empty = every branch.
+  // Informational only — the order flow doesn't filter on it (branch is
+  // chosen at checkout, in app/order/confirm/page.tsx).
+  branch?: string[] | null;
 };
+
+export type PackageBranch = { id: string; name: string };
+
+// Mirrors the BRANCHES ids used at checkout (app/order/confirm/page.tsx).
+export const PACKAGE_BRANCHES: PackageBranch[] = [
+  { id: "cavite", name: "Cavite" },
+  { id: "laguna", name: "Laguna" },
+  { id: "metro-manila", name: "Metro Manila" },
+];
 
 // Grazing packages have no menu to choose — the whole spread is the menu,
 // so each pax tier gets exactly one price instead of three variants. Kept
