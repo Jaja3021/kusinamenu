@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPackageAction } from "../actions";
-import { packageCategories, PACKAGE_BRANCHES } from "@/lib/packages";
+import { PACKAGE_BRANCHES, type PackageCategory } from "@/lib/packages";
 
 const SHAPES = [
   { value: "pax-tiered", label: "Pax-tiered", hint: "Pick a pax size, one menu per tier (add tiers after creating)." },
@@ -11,6 +11,19 @@ const SHAPES = [
   { value: "packed-meal", label: "Packed meal", hint: "Per-piece pricing — add categories after creating." },
   { value: "head-count", label: "Head-count", hint: "Flat rate per guest, build-your-own menu." },
 ] as const;
+
+type Shape = (typeof SHAPES)[number]["value"];
+
+// Which categories make sense for each shape, so this form can't create
+// combinations the storefront (app/page.tsx) doesn't know how to render —
+// e.g. a "Full-Service Catering" package that isn't head-count priced.
+const CATEGORIES_FOR_SHAPE: Record<Shape, PackageCategory[]> = {
+  "head-count": ["Full-Service Catering"],
+  "tray-cart": ["Tray Orders"],
+  "packed-meal": ["Tray Orders"],
+  "fixed-menu": ["Grazing"],
+  "pax-tiered": ["Tray Orders", "Full-Service Catering"],
+};
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-gold-light/50 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25";
@@ -54,8 +67,8 @@ export function NewPackageForm() {
         </label>
         <label className="text-sm">
           Category *
-          <select name="category" required className={inputClass}>
-            {packageCategories.map((c) => (
+          <select key={shape} name="category" required className={inputClass}>
+            {CATEGORIES_FOR_SHAPE[shape].map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

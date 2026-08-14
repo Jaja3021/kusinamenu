@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stepper } from "@/components/Stepper";
 import { BackButton } from "@/components/BackButton";
+import { OrderBadge } from "@/components/OrderBadge";
 import { useWizard } from "@/context/WizardContext";
 import { usePackages } from "@/context/PackagesContext";
 import { EVENT_TYPES, type EventTypeInfo } from "@/lib/events";
@@ -148,10 +149,12 @@ export default function PackageSelectionPage() {
       {selectedEvent && <Stepper current={1} />}
 
       <div
-        className={`rounded-3xl bg-white px-6 py-12 text-center shadow-[0_1px_2px_rgba(27,58,46,0.04),0_24px_48px_-24px_rgba(27,58,46,0.12)] ${
+        className={`relative rounded-3xl bg-white px-6 py-12 text-center shadow-[0_1px_2px_rgba(27,58,46,0.04),0_24px_48px_-24px_rgba(27,58,46,0.12)] ${
           selectedEvent ? "mt-8" : ""
         }`}
       >
+        <OrderBadge className="absolute right-6 top-6" />
+
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-dark">
           Kusinang Pamana Catering
         </p>

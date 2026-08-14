@@ -149,9 +149,66 @@ export async function lookupOrderAction(_prev: TrackResult | null, formData: For
   return loadTrackedOrder(orderNumber, contact);
 }
 
+// The proof extensions begin_payment() accepts (supabase/payments.sql §10)
+// and the storage bucket allows (§12). Derived from the file's MIME TYPE
+// rather than its name: a browser will happily hand over a valid JPEG named
+// `receipt.jfif` (Chrome on Windows does this routinely), and matching on
+// the filename alone got that rejected by the database with an error the
+// customer could neither read nor act on.
+const EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/pjpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heic",
+};
+
+// Fallback for browsers that send an empty `type` (some Android pickers).
+const EXT_ALIASES: Record<string, string> = {
+  jpeg: "jpg",
+  jpg: "jpg",
+  jfif: "jpg",
+  jpe: "jpg",
+  png: "png",
+  webp: "webp",
+  heic: "heic",
+  heif: "heic",
+};
+
+// Returns null when the file is not an image we can accept — the caller
+// turns that into copy that names the problem, so the database check stays a
+// backstop rather than the thing the customer collides with.
+function proofExtension(proof: File): string | null {
+  const byMime = EXT_BY_MIME[proof.type.toLowerCase()];
+  if (byMime) return byMime;
+
+  const name = proof.name.toLowerCase();
+  const raw = name.includes(".") ? name.split(".").pop()! : "";
+  return EXT_ALIASES[raw] ?? null;
+}
+
+// Logs the raw PostgREST/Supabase error before it gets flattened into
+// customer copy. Without this the only signal a failure leaves is the
+// generic fallback string, which is what made the GCash/Bank Transfer
+// failure undiagnosable in the first place.
+function logSupabaseError(stage: string, error: unknown, context: Record<string, unknown>) {
+  const e = error as { code?: string; message?: string; details?: string; hint?: string } | null;
+  console.error(`[payment:${stage}]`, {
+    ...context,
+    code: e?.code,
+    message: e?.message,
+    details: e?.details,
+    hint: e?.hint,
+  });
+}
+
 // Maps the Postgres error codes/messages raised by begin_payment() (see
-// supabase/payments.sql §10) to copy a customer can act on.
-function friendlyRpcError(message: string): string {
+// supabase/payments.sql §10) to copy a customer can act on. `code` is the
+// Postgres SQLSTATE (e.g. "22023"), surfaced only in the fallback message so
+// an unmapped failure is at least quotable instead of a bare "try again".
+function friendlyRpcError(message: string, code?: string): string {
   if (message.includes("PAYMENT_ALREADY_PENDING")) {
     return "You already have a payment submission in progress for this order. Please wait a few minutes and try again.";
   }
@@ -160,6 +217,9 @@ function friendlyRpcError(message: string): string {
   }
   if (message.includes("AMOUNT_EXCEEDS_BALANCE")) {
     return "That amount is more than what's left to pay on this order.";
+  }
+  if (message.includes("BELOW_MINIMUM_DEPOSIT")) {
+    return "The first payment must cover the 50% reservation deposit.";
   }
   if (message.includes("BAD_AMOUNT")) {
     return "Please enter a valid amount.";
@@ -170,7 +230,16 @@ function friendlyRpcError(message: string): string {
   if (message.includes("ORDER_NOT_FOUND")) {
     return "We couldn't find an order matching those details.";
   }
-  return "We couldn't submit that payment right now. Please try again.";
+  if (message.includes("BAD_EXTENSION")) {
+    return "That file type isn't supported — please attach a JPG, PNG, WEBP, or HEIC screenshot.";
+  }
+  if (message.includes("BAD_METHOD")) {
+    return "Please choose a payment method.";
+  }
+  // A code is appended so a customer can quote something specific instead of
+  // just "it didn't work" — the full detail lands in the server logs via
+  // logSupabaseError above.
+  return `We couldn't submit that payment right now. Please try again.${code ? ` (code: ${code})` : ""}`;
 }
 
 // The begin -> upload -> finalize chain runs as one action deliberately:
@@ -190,7 +259,26 @@ export async function submitPaymentAction(_prev: TrackResult | null, formData: F
   }
 
   const supabase = transientSupabase();
-  const ext = proof instanceof File && proof.name.includes(".") ? proof.name.split(".").pop()! : "jpg";
+
+  // Online methods need a real, recognized image before we even call the
+  // RPC — catching an unsupported file here gives copy that names the
+  // problem, instead of surfacing the database's BAD_EXTENSION as a generic
+  // failure (which is what made the original GCash/Bank Transfer bug
+  // indistinguishable from an actual server error).
+  let ext = "jpg";
+  if (method !== "Cash") {
+    if (!(proof instanceof File) || proof.size === 0) {
+      return { ok: false, error: "Please attach a screenshot of your payment." };
+    }
+    const derived = proofExtension(proof);
+    if (!derived) {
+      return {
+        ok: false,
+        error: "That file type isn't supported — please attach a JPG, PNG, WEBP, or HEIC screenshot.",
+      };
+    }
+    ext = derived;
+  }
 
   const { data: beginData, error: beginError } = await supabase.rpc("begin_payment", {
     p_order_number: orderNumber,
@@ -201,7 +289,8 @@ export async function submitPaymentAction(_prev: TrackResult | null, formData: F
     p_proof_ext: ext,
   });
   if (beginError) {
-    return { ok: false, error: friendlyRpcError(beginError.message) };
+    logSupabaseError("begin_payment", beginError, { orderNumber, method, amount });
+    return { ok: false, error: friendlyRpcError(beginError.message, beginError.code) };
   }
   const row = (beginData as { payment_id: string; proof_path: string | null }[] | null)?.[0];
   if (!row) {
@@ -218,15 +307,17 @@ export async function submitPaymentAction(_prev: TrackResult | null, formData: F
       .from("payment-proofs")
       .upload(row.proof_path, proof, { contentType: proof.type || "image/jpeg", upsert: false });
     if (upload.error) {
+      logSupabaseError("storage.upload", upload.error, { orderNumber, path: row.proof_path });
       return { ok: false, error: "We couldn't save that screenshot. Please try again." };
     }
 
-    const { data: finalized } = await supabase.rpc("finalize_payment", {
+    const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_payment", {
       p_order_number: orderNumber,
       p_contact: contact,
       p_payment_id: row.payment_id,
     });
     if (!finalized) {
+      if (finalizeError) logSupabaseError("finalize_payment", finalizeError, { orderNumber, paymentId: row.payment_id });
       return { ok: false, error: "We couldn't confirm that upload. Please try again." };
     }
   }

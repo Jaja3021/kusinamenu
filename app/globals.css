@@ -46,3 +46,17 @@ textarea:focus,
 select:focus {
   --tw-ring-color: var(--gold);
 }
+
+/* Removes the native up/down stepper from a number input, for fields the
+   customer should type into directly rather than click through — e.g. the
+   payment Amount field (components/PaymentSection.tsx), where the default
+   step="1" arrows are too slow to be useful against a five-figure total. */
+.no-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}

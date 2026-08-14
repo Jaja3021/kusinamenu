@@ -27,6 +27,9 @@ export default function TrackOrderClient() {
   // Lets a successful payment submission (which re-reads the order inside
   // submitPaymentAction) replace what's on screen without a second lookup.
   const [paidOrder, setPaidOrder] = useState<TrackedOrder | null>(null);
+  // True while PaymentSection has unsaved input (reference typed, screenshot
+  // chosen, or mid-submit) — see the focus effect below.
+  const [paymentFormDirty, setPaymentFormDirty] = useState(false);
 
   const order = paidOrder ?? (lookup?.ok ? lookup.order : null);
   // ?contact= lets My Orders' "Track Order" button (app/order/mine/page.tsx)
@@ -49,15 +52,24 @@ export default function TrackOrderClient() {
 
   // No Supabase Realtime subscription — refetching whenever the tab regains
   // focus is enough for "the customer sees an admin's status change without
-  // a full page reload," and needs no extra infrastructure.
+  // a full page reload," and needs no extra infrastructure. Skipped while
+  // PaymentSection is dirty: opening the file picker to attach a screenshot
+  // blurs the window, and refocusing after picking a file used to fire this
+  // refresh mid-fill, swapping `order` out from under the still-open form.
   useEffect(() => {
     if (!order) return;
+    const currentOrder = order;
     function onFocus() {
+      // Once the balance hits 0, PaymentSection unmounts and there's no
+      // form left to protect — an order object that stays "dirty" forever
+      // (there's no unmount cleanup to reset it) shouldn't keep blocking
+      // refresh after that point.
+      if (paymentFormDirty && balanceDue(currentOrder) > 0) return;
       refreshFormRef.current?.requestSubmit();
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [order]);
+  }, [order, paymentFormDirty]);
 
   if (!order) {
     return (
@@ -244,7 +256,9 @@ export default function TrackOrderClient() {
         )}
       </div>
 
-      {balance > 0 && <PaymentSection order={order} contact={contact} onSubmitted={setPaidOrder} />}
+      {balance > 0 && (
+        <PaymentSection order={order} contact={contact} onSubmitted={setPaidOrder} onDirtyChange={setPaymentFormDirty} />
+      )}
 
       <Link
         href="/"

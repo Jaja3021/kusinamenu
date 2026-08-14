@@ -389,6 +389,13 @@ begin
     raise exception 'AMOUNT_EXCEEDS_BALANCE' using errcode = '22023';
   end if;
 
+  -- A first payment must cover the full 50% reservation deposit — the event
+  -- date is not held until it is paid. Partial balance payments stay allowed
+  -- once the deposit itself has been verified.
+  if v_paid < v_deposit and p_amount < (v_deposit - v_paid) - 0.5 then
+    raise exception 'BELOW_MINIMUM_DEPOSIT' using errcode = '22023';
+  end if;
+
   -- kind is derived, never trusted from the client.
   v_kind := case when v_paid < v_deposit then 'Deposit' else 'Balance' end;
 
@@ -417,7 +424,11 @@ begin
   if coalesce(trim(p_reference_number), '') = '' then
     raise exception 'REFERENCE_REQUIRED' using errcode = '22023';
   end if;
-  if v_ext !~ '^(jpg|jpeg|png|webp|heic)$' then
+  -- jfif/heif accepted alongside their canonical forms: the client
+  -- (app/order/track/actions.ts, proofExtension()) now derives this from
+  -- the file's MIME type and normalizes aliases before calling in, but this
+  -- check stays as the authoritative backstop.
+  if v_ext !~ '^(jpg|jpeg|jfif|png|webp|heic|heif)$' then
     raise exception 'BAD_EXTENSION' using errcode = '22023';
   end if;
 
