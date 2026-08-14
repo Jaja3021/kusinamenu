@@ -7,6 +7,8 @@ import { Stepper, FIXED_MENU_STEPS } from "@/components/Stepper";
 import { BackButton } from "@/components/BackButton";
 import { TermsModal } from "@/components/TermsModal";
 import { OtpModal } from "@/components/OtpModal";
+import { EventDatePicker } from "@/components/EventDatePicker";
+import { getBlockedDates, type BlockedDate } from "@/lib/blocked-dates-data";
 import {
   useWizard,
   type CustomerInfo,
@@ -68,6 +70,30 @@ export default function ConfirmPage() {
     return toDateInputValue(d);
   }, []);
 
+  // Fetched once on mount, not gated behind the pkg/menu early-returns below
+  // (this hook has to stay above every conditional return in the component).
+  // A failed fetch degrades to "nothing blocked" rather than making the form
+  // unusable — the server-side guard in actions.ts is what's actually
+  // authoritative, this is just so the picker doesn't need to be perfect.
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  const [blockedDatesLoading, setBlockedDatesLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    getBlockedDates()
+      .then((rows) => {
+        if (!cancelled) setBlockedDates(rows);
+      })
+      .catch((err) => {
+        console.error("[ConfirmPage] getBlockedDates failed:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setBlockedDatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [schedule, setSchedule] = useState<ScheduleInfo>(draft.scheduleInfo);
   const [customer, setCustomer] = useState<CustomerInfo>(draft.customerInfo);
   const [delivery, setDelivery] = useState<"delivery" | "pickup">(draft.deliveryMethod);
@@ -112,7 +138,21 @@ export default function ConfirmPage() {
     ? `${draft.packedMealCart.reduce((sum, line) => sum + line.qty, 0)} pcs`
     : `${getPaxLabel(pkg.slug, draft.pax ?? 0)} Pax`;
 
-  const dateIsValid = schedule.date !== "" && schedule.date >= minDate;
+  // Re-derived on every render (not memoized) so a branch change after a
+  // date was already picked is caught immediately: the date stays visibly
+  // selected, but a branch-specific block for the newly chosen branch makes
+  // it invalid without silently clearing what the customer picked.
+  const activeBlock =
+    schedule.date === ""
+      ? undefined
+      : blockedDates.find(
+          (b) => b.date === schedule.date && (b.branch === null || b.branch === schedule.branch)
+        );
+  const dateIsValid = schedule.date !== "" && schedule.date >= minDate && !activeBlock;
+  const selectedBranchName = BRANCHES.find((b) => b.id === schedule.branch)?.name;
+  const formattedScheduleDate = schedule.date
+    ? new Date(`${schedule.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
 
   const canSubmit =
     schedule.branch !== "" &&
@@ -129,7 +169,7 @@ export default function ConfirmPage() {
     setOtpError(null);
     setOtpOpen(true);
     setOtpSending(true);
-    const { error } = await sendOrderOtp(customer.email);
+    const { error } = await sendOrderOtp(customer.email, schedule.date, schedule.branch);
     setOtpSending(false);
     if (error) setOtpError(error);
   }
@@ -137,7 +177,7 @@ export default function ConfirmPage() {
   async function handleResendOtp() {
     setOtpError(null);
     setOtpSending(true);
-    const { error } = await sendOrderOtp(customer.email);
+    const { error } = await sendOrderOtp(customer.email, schedule.date, schedule.branch);
     setOtpSending(false);
     if (error) setOtpError(error);
   }
@@ -280,24 +320,29 @@ export default function ConfirmPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="text-sm">
-              Event Date *
-              <input
-                type="date"
-                min={minDate}
+            <div className="text-sm">
+              <p className="font-medium text-gray-700">Event Date *</p>
+              <EventDatePicker
                 value={schedule.date}
-                onChange={(e) => setSchedule({ ...schedule, date: e.target.value })}
-                className={inputClass}
+                onChange={(date) => setSchedule({ ...schedule, date })}
+                minDate={minDate}
+                blockedDates={blockedDates}
+                branch={schedule.branch}
+                loading={blockedDatesLoading}
               />
               <span className="mt-1 block text-xs text-gray-500">
                 Must be at least 3 days from today.
               </span>
               {schedule.date !== "" && !dateIsValid && (
                 <span className="mt-1 block text-xs font-medium text-red-600">
-                  Please choose a date on or after {minDate}.
+                  {activeBlock
+                    ? `${formattedScheduleDate} is unavailable${
+                        selectedBranchName ? ` for ${selectedBranchName}` : ""
+                      } — ${activeBlock.reason}. Please pick another date.`
+                    : `Please choose a date on or after ${minDate}.`}
                 </span>
               )}
-            </label>
+            </div>
             <label className="text-sm">
               Event Time <span className="text-xs font-normal text-gray-400">(Optional)</span>
               <select

@@ -16,8 +16,45 @@ import { sendEmail } from "@/lib/email";
 import { orderPlacedEmail } from "@/lib/email-templates";
 import type { ScheduleInfo, CustomerInfo, OrderPlacementResult } from "@/context/WizardContext";
 
-export async function sendOrderOtp(email: string): Promise<{ error: string | null }> {
+// Shared by sendOrderOtp's early check and verifyOtpAndPlaceOrder's
+// authoritative one. null branch on a row means "blocks every branch" (see
+// herbies-dashboard/supabase/blocked_dates.sql); an empty branch means the
+// customer hasn't picked one yet, which only a null-branch row can match.
+// Fails open on its own error — a Supabase hiccup here shouldn't block a
+// legitimate order, same stance app/order/confirm/page.tsx takes when its
+// blocked-dates fetch fails.
+async function findDateBlock(
+  supabase: ReturnType<typeof transientSupabase>,
+  date: string,
+  branch: string
+): Promise<{ reason: string } | null> {
+  if (!date) return null;
+  const { data, error } = await supabase.from("blocked_dates").select("reason, branch").eq("date", date);
+  if (error) {
+    console.error("[confirm/actions] blocked_dates check failed:", error.message);
+    return null;
+  }
+  const rows = (data ?? []) as { reason: string; branch: string | null }[];
+  return rows.find((row) => row.branch === null || row.branch === branch) ?? null;
+}
+
+export async function sendOrderOtp(
+  email: string,
+  eventDate: string,
+  branch: string
+): Promise<{ error: string | null }> {
   const supabase = transientSupabase();
+
+  // Cheap check before the code is emailed: catches the common case (the
+  // date was already blocked by the time the customer hit Send Inquiry)
+  // without burning their OTP on an order that's going to be rejected
+  // anyway. verifyOtpAndPlaceOrder re-checks this for real — this is a UX
+  // shortcut, not the authoritative guard.
+  const earlyBlock = await findDateBlock(supabase, eventDate, branch);
+  if (earlyBlock) {
+    return { error: `That date is no longer available — ${earlyBlock.reason}. Please pick another date.` };
+  }
+
   try {
     const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
     if (!error) return { error: null };
@@ -60,6 +97,18 @@ export async function verifyOtpAndPlaceOrder(code: string, input: PlaceOrderInpu
   });
   if (verifyError || !verifyData.session) {
     return { ok: false, error: verifyError?.message ?? "That code didn't work — check it and try again." };
+  }
+
+  // The client's blocked-dates list (app/order/confirm/page.tsx) is fetched
+  // once on mount and can be stale by the time this runs, and this export is
+  // independently POST-able regardless of what UI calls it — the same
+  // reasoning below recomputes prices instead of trusting the client's total.
+  const dateBlock = await findDateBlock(anonSupabase, input.scheduleInfo.date, input.scheduleInfo.branch);
+  if (dateBlock) {
+    return {
+      ok: false,
+      error: `Sorry, that date just became unavailable — ${dateBlock.reason}. Please go back and pick another date.`,
+    };
   }
 
   // Prices are never trusted from the client — recompute from the live
